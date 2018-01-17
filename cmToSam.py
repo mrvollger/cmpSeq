@@ -11,6 +11,24 @@ DEBUG=args.d
 import re
 import numpy as np
 import pysam 
+from collections import Counter
+
+
+M=0 #M	BAM_CMATCH	0
+I=1 #I	BAM_CINS	1
+D=2 #D	BAM_CDEL	2
+N=3 #N	BAM_CREF_SKIP	3
+S=4 #S	BAM_CSOFT_CLIP	4
+H=5 #H	BAM_CHARD_CLIP	5
+P=6 #P	BAM_CPAD	6
+E=7 #=	BAM_CEQUAL	7
+X=8 #X	BAM_CDIFF	8
+B=9 #B	BAM_CBACK	9
+NM=10 #NM	NM tag	10
+conRef	=	[M, D, N, E, E] # these ones "consume" the reference
+conQuery=	[M, I, S, E, X] # these ones "consume" the query
+conAln	=	[M, I, D, N, S, E, X] # these ones "consume" the alignments
+# format for the output table 
 
 
 #
@@ -89,12 +107,26 @@ REFS = {}
 
 # pass a string that contains the alignmnet
 class cmAln:
+
+		
+	# step then the amound it should sum to 
+	def checkLength(self):
+		counter = 0
+		for char in self.lcigar:
+			if char in ["M", "I", "S", "=", "X"]:
+				counter += 1
+		assert len(self.seq) == counter, (len(self.seq), counter, Counter(self.seq), Counter(self.qaln),
+											Counter(self.raln))
+
+
+	
 	def __init__(self, cmString):
 		self.createHeader(cmString)
 		self.getAln(cmString)
 		self.createCigar() 
 		self.miscSam()
-
+		self.checkLength()
+		
 		# update flags if this is the best match
 		if(self.qname not in FLAGS):
 			FLAGS[self.qname] = self.score
@@ -122,8 +154,10 @@ class cmAln:
 				cigar += "D"
 			elif(qb in alpha and rb in alpha and qb.lower() != rb.lower()): # mismatch
 				cigar += "X"
-			elif(rb == "N"):
-				cigar += "N"
+			elif(qb == "N" and rb in alpha): # not sure what to do in this case
+				cigar += "M"
+			elif(rb == "N"): # not sure about this case
+				cigar += "M"
 			else:
 				print("case not handled", qb, rb)
 				exit()

@@ -2,7 +2,7 @@
 library(ggplot2)
 require(scales)
 library(grid)
-path = "~/Desktop/data/genomeWide/Mitchell_CHM1/LocalAssemblies/clones/cmps/002002F.6800.21599_0/align/test"
+path = "~/Desktop/data/genomeWide/Mitchell_CHM1/LocalAssemblies/clones/cmps/002002F.6800.21599_0/perID/slidePerID.tsv"
 suppressPackageStartupMessages(library("argparse"))
 parser <- ArgumentParser()
 #parser$add_argument("-n", "--add_numbers", action="store_true", default=FALSE, help="Print line number at the beginning of each line [default]")
@@ -17,7 +17,7 @@ mydata <- read.table(path, header=TRUE)
 # ggplot stuff 
 #
 ymin=90
-textSize = 36
+textSize = 12
 theme_set(theme_minimal(base_size = textSize))
 th = theme(axis.title.y = element_text(margin = margin(t = 50, r = 50, b = 50, l = 50)))
 size = 1
