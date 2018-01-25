@@ -16,6 +16,8 @@ if [ "unlock" == "unlock" ]; then
 fi
 
 n=$(nproc)
+n=1
+NPROC=1
 snakemake -j $n --rerun-incomplete -p --cores $NPROC -s $base2/$snake
 
 

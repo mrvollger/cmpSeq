@@ -2,9 +2,15 @@
 import argparse
 
 parser = argparse.ArgumentParser(description="parses the output of cross match, cross match must be run with the flags -alignment and -tags, does not support inputs with qualities")
-parser.add_argument("input", help="cross_match output file" )
+parser.add_argument("input", help="cross_match output file, must have been run with -tags and -alignment" )
 parser.add_argument("out", help="outputfile of this prgram" )
 parser.add_argument('-d', action="store_true", default=False)
+parser.add_argument('--blast', "-b", help="""Tabular blast input with some required feilds. 
+The out format must be set to 7 and have these fields:
+"score sstrand qseqid qstart qend qlen qseq sseqid sstart send slen sseq"
+However, these feilds can be in any order you want and you can also include additional ones without problems.
+The program will NOT work with format 6.
+""", action="store_true", default=False)
 args = parser.parse_args()
 DEBUG=args.d
 
@@ -12,7 +18,11 @@ import re
 import numpy as np
 import pysam 
 from collections import Counter
-
+import sys
+if( sys.version_info[0] < 3 ): 
+	from StringIO import StringIO
+else:
+	from io import StringIO
 
 M=0 #M	BAM_CMATCH	0
 I=1 #I	BAM_CINS	1
@@ -120,9 +130,14 @@ class cmAln:
 
 
 	
-	def __init__(self, cmString):
-		self.createHeader(cmString)
-		self.getAln(cmString)
+	def __init__(self, cmString, blast = args.blast ):
+		if(not blast):
+			self.createHeader(cmString)
+			self.getAln(cmString)
+		else:
+			# the blast line is only one thing long, so we make it all at once 
+			self.blastReadIn(cmString)
+
 		self.createCigar() 
 		self.miscSam()
 		self.checkLength()
@@ -224,6 +239,30 @@ class cmAln:
 			self.rstart = self.rend
 			self.rend = temp
 
+	def blastReadIn(self, cmString):
+		# this is also the only line in a blast aln
+		headerLine = cmString.split("\n")[0]
+		#print(headerLine)
+		header = headerLine.split()	
+		self.score = int(header[0])
+		self.sub = float(header[1]) 
+		self.deletion = float(header[2])
+		self.ins = float(header[3])
+		self.qname = header[4]
+		self.qstart = int(header[5])
+		self.qend = int(header[6])
+		self.qext = int(header[7])
+		self.complement = False
+		if(header[8] == "C"):
+			self.complement = True
+		self.rname = header[9]
+		self.rstart = int(header[10])
+		self.rend = int(header[11])
+		self.rext = int(header[12]) 
+		self.qaln = header[13]
+		self.raln = header[14]
+
+
 	# the string return is the sam file 
 	def __str__(self):
 		sam = ("{}\t"*10 + "{}\n").format(
@@ -236,9 +275,30 @@ class cmAln:
 
 #
 #
+#
+def convertBlastToCm(aln):
+	import pandas as pd
+	aln = StringIO(aln)
+	aln = pd.read_csv(aln, sep = "\t")
+	sams = []	
+	for idx, row in aln.iterrows():
+		complement = "NC"
+		if(row["subject strand"] == "minus"):
+			complement = "C"
+		blast  = ("{}\t"*14 + "{}\n").format( row["score"], 0.0 , 0.0 , 0.0, 
+				row["query id"], row["q. start"], row["q. end"], row["query length"] - row["q. end"], 
+				complement, 
+				row["subject id"], row["s. start"], row["s. end"], row["subject length"] - row["s. end"], 
+				row["query seq"], row["subject seq"])
+		sams.append( cmAln(blast) )
+
+	return(sams)
+
+#
+#
 # read in the file
-def read(file):
-	lines = open(file).readlines()
+def read(myfile):
+	lines = open(myfile).readlines()
 	idx = 0
 	alns = []
 	while(idx < len(lines) ):
@@ -259,8 +319,35 @@ def read(file):
 	return(alns)
 
 
+
+#
+# this reads in a blast alignment and convertes it to sam. 
+#
+def readInBlast(myblast):
+	f = open(myblast)
+	toKeep = ""
+	header = ""
+	for line in f:
+		if( (header == "") and ("# Fields:" in line) ):
+			# make header
+			header = line.split(":")[1]
+			header = header.split(",")
+			header = [token.strip() for token in header]
+			header = "\t".join(header) + "\n"
+		if(line[0] != "#" ):
+			toKeep += ( "\t".join( line.strip().split() ) + "\n" )
+	
+	sams = convertBlastToCm(header + toKeep)	
+	
+	return(sams)
+	
+
 # read in all the of alignmnets 
-cmAlns = read(args.input)
+if(args.blast):
+	cmAlns = readInBlast(args.input)
+else:
+	cmAlns = read(args.input)
+
 
 samHeader = """@HD\tVN:1.4\tSO:coordinate
 @PG\tID:cmToSam.py\tCL:cmToSam.py {} {} 

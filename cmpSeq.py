@@ -33,7 +33,7 @@ print(pairs)
 
 rule all:	
 	input:
-		plot="alignment.png",
+		plot="alignment.svg",
 	shell:
 		"""
 		echo done	
@@ -96,8 +96,8 @@ rule alignments:
 		"""
 		mkdir -p align 
 		export PATH=$PATH:/net/eichler/vol2/local/inhousebin
-		cross_match -alignments -masklevel 0 -minmatch 100 -tags \
-				-bandwidth 500 -gap_ext -1 -gap_init -10 -penalty -1 \
+		cross_match -alignments -masklevel 0 -minmatch 150 -tags \
+				-bandwidth 100 -gap_ext -1 -gap_init -10 -penalty -1 \
 				{input.fasta} > {output.aln}
 		"""
 
@@ -112,7 +112,7 @@ rule perID:
 		allaln="align/all.aln",
 		alnsam="align/aln.sam",
 		perid="perID/slidePerID.tsv",
-		plot="alignment.png",
+		plot="alignment.svg",
 	shell:
 		"""
 		mkdir -p perID
